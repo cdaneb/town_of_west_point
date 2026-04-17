@@ -1,0 +1,147 @@
+<script>
+    let publicSocket = null;
+    let mafiaSocket = null;
+
+    async function refreshState() {
+        try {
+            const response = await fetch("{% url 'game_state_api' %}");
+            if (!response.ok) {
+                console.error("State API error:", response.status);
+                return;
+            }
+
+            const data = await response.json();
+
+            const phaseEl = document.getElementById("phase");
+            const timerEl = document.getElementById("timer");
+            const winnerEl = document.getElementById("winner");
+            const playerList = document.getElementById("player-list");
+
+            if (phaseEl) phaseEl.innerText = data.phase;
+            if (timerEl) timerEl.innerText = data.seconds_remaining;
+            if (winnerEl && data.winner) {
+                winnerEl.innerText = data.winner + " wins!";
+            }
+
+            if (playerList) {
+                playerList.innerHTML = "";
+                data.players.forEach(player => {
+                    const li = document.createElement("li");
+                    li.textContent = player.username + (player.is_alive ? " (Alive)" : " (Dead)");
+                    playerList.appendChild(li);
+                });
+            }
+        } catch (error) {
+            console.error("refreshState failed:", error);
+        }
+    }
+
+    function appendMessage(listId, username, message) {
+        const chatBox = document.getElementById(listId);
+        if (!chatBox) return;
+
+        const messageEl = document.createElement("div");
+        messageEl.textContent = username + ": " + message;
+        chatBox.appendChild(messageEl);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function setupPublicChat() {
+        try {
+            const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+            publicSocket = new WebSocket(protocol + "://" + window.location.host + "/ws/public/");
+
+            publicSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                appendMessage("public-chat-box", data.username, data.message);
+            };
+
+            publicSocket.onclose = function(e) {
+                console.log("Public chat socket closed", e);
+            };
+
+            publicSocket.onerror = function(e) {
+                console.error("Public chat socket error", e);
+            };
+        } catch (error) {
+            console.error("setupPublicChat failed:", error);
+        }
+    }
+
+    function setupMafiaChat() {
+        try {
+            const mafiaSection = document.getElementById("mafia-section");
+            if (!mafiaSection) return;
+
+            const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+            mafiaSocket = new WebSocket(protocol + "://" + window.location.host + "/ws/mafia/");
+
+            mafiaSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                appendMessage("mafia-chat-box", data.username, data.message);
+            };
+
+            mafiaSocket.onclose = function(e) {
+                console.log("Mafia chat socket closed", e);
+            };
+
+            mafiaSocket.onerror = function(e) {
+                console.error("Mafia chat socket error", e);
+            };
+        } catch (error) {
+            console.error("setupMafiaChat failed:", error);
+        }
+    }
+
+    function sendPublicMessage() {
+        const input = document.getElementById("public-message-input");
+        const message = input ? input.value.trim() : "";
+
+        if (!message || !publicSocket || publicSocket.readyState !== WebSocket.OPEN) {
+            return;
+        }
+
+        publicSocket.send(JSON.stringify({ message: message }));
+        input.value = "";
+    }
+
+    function sendMafiaMessage() {
+        const input = document.getElementById("mafia-message-input");
+        const message = input ? input.value.trim() : "";
+
+        if (!message || !mafiaSocket || mafiaSocket.readyState !== WebSocket.OPEN) {
+            return;
+        }
+
+        mafiaSocket.send(JSON.stringify({ message: message }));
+        input.value = "";
+    }
+
+    window.onload = function() {
+        refreshState();
+
+        // Start timer polling first so websocket errors do not stop it
+        setInterval(refreshState, 1000);
+
+        setupPublicChat();
+        setupMafiaChat();
+
+        const publicInput = document.getElementById("public-message-input");
+        if (publicInput) {
+            publicInput.addEventListener("keypress", function(e) {
+                if (e.key === "Enter") {
+                    sendPublicMessage();
+                }
+            });
+        }
+
+        const mafiaInput = document.getElementById("mafia-message-input");
+        if (mafiaInput) {
+            mafiaInput.addEventListener("keypress", function(e) {
+                if (e.key === "Enter") {
+                    sendMafiaMessage();
+                }
+            });
+        }
+    };
+</script>
