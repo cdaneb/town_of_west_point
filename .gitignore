@@ -8,3 +8,5 @@ staticfiles/
 media/
 *.log
 .DS_Store
+town_of_west_point_cli_agent_instructions.md
+readme_cook.txt
