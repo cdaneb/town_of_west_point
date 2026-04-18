@@ -3,7 +3,7 @@
 
 ## Overview
 
-Town of West Point is a Django-based Mafia web game. Players register accounts, join a lobby, and are randomly assigned roles (Town or Mafia). The game runs in timed Day/Night phases. Town members vote to eliminate suspects during the day; Mafia picks a target to eliminate each night. The game ends when one side achieves its win condition.
+Town of West Point is a Django-based Mafia web game. Players register accounts, join a lobby, and are randomly assigned roles (Town or Mafia). The game runs in timed Day/Night phases. Town members vote to eliminate suspects during the day, and Mafia picks a target to eliminate each night. The game ends when one side achieves its win condition.
 
 ---
 
@@ -79,14 +79,16 @@ python manage.py createsuperuser
 
 The game requires **two processes** running simultaneously:
 
-### Terminal 1 — Web server (via Daphne for WebSocket support)
+### Terminal 1 — Run server
 ```bash
 daphne mvp.asgi:application
 ```
 
+This will run the game in the browser at 127.0.0.1:8000 .
+
 > You can also use `python manage.py runserver` for basic testing, but WebSocket chat requires Daphne or another ASGI server.
 
-### Terminal 2 — Phase timer loop
+### Terminal 2 — Run Phase timer loop
 ```bash
 python manage.py run_game_timer
 ```
