@@ -1,17 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Mafia Game</title>
+    <title>Mafia Game – Town of West Point</title>
+    <style>
+        #public-chat-log, #mafia-chat-log {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 6px;
+            list-style: none;
+            margin: 0 0 6px 0;
+        }
+    </style>
 </head>
 <body>
-    <h1>Mafia Game</h1>
+    <h1>Town of West Point – Mafia</h1>
+    <p>
+        Logged in as: <strong>{{ request.user.username }}</strong>
+        &nbsp;|&nbsp; <a href="{% url 'logout' %}">Logout</a>
+    </p>
 
-    <p>Phase: {{ game.phase }}</p>
-    <p>Time Remaining: <span id="timer">{{ game.seconds_remaining }}</span></p>
-    <p>Your role: {{ player.role }}</p>
+    <p>Phase: <strong id="phase-display">{{ game.phase }}</strong></p>
+    <p>Time Remaining: <span id="timer">{{ game.seconds_remaining }}</span>s</p>
+    <p>Your role: <strong>{{ player.role|default:"(not yet assigned)" }}</strong></p>
+    <p>Your status: {% if player.is_alive %}Alive{% else %}<em>Dead</em>{% endif %}</p>
 
     {% if game.winner %}
         <h2>{{ game.winner }} wins!</h2>
+    {% endif %}
+
+    {% if game.phase == 'GAME_OVER' %}
+        <form method="post" action="{% url 'reset_game' %}">
+            {% csrf_token %}
+            <button type="submit">Return to Lobby (New Game)</button>
+        </form>
     {% endif %}
 
     <h2>Players</h2>
@@ -19,12 +41,13 @@
         {% for p in players %}
             <li>
                 {{ p.user.username }}
-                {% if p.is_alive %}(Alive){% else %}(Dead){% endif %}
+                {% if p.is_alive %}(Alive){% else %}<em>(Dead)</em>{% endif %}
+                {% if game.phase == 'GAME_OVER' %} &mdash; {{ p.role }}{% endif %}
 
                 {% if game.phase == 'DAY' and player.is_alive and p.is_alive and p != player %}
                     <form method="post" action="{% url 'cast_vote' p.id %}" style="display:inline;">
                         {% csrf_token %}
-                        <button type="submit">Vote</button>
+                        <button type="submit">Vote Out</button>
                     </form>
                 {% endif %}
 
@@ -38,46 +61,138 @@
         {% endfor %}
     </ul>
 
-    <h2>Public Chat</h2>
-    <ul>
+    <h2>Public Chat {% if game.phase == 'DAY' %}<small>(live)</small>{% else %}<small>(chat enabled during Day)</small>{% endif %}</h2>
+    <ul id="public-chat-log">
         {% for msg in public_messages %}
-            <li>
-                {% if msg.sender %}{{ msg.sender.user.username }}{% else %}SYSTEM{% endif %}: {{ msg.content }}
-            </li>
+            <li><b>{% if msg.sender %}{{ msg.sender.user.username }}{% else %}SYSTEM{% endif %}:</b> {{ msg.content }}</li>
         {% empty %}
-            <li>No messages yet.</li>
+            <li id="no-public-msg">No messages yet.</li>
         {% endfor %}
     </ul>
+    {% if game.phase == 'DAY' and player.is_alive %}
+    <div>
+        <input type="text" id="public-chat-input" placeholder="Type a message..." size="40" />
+        <button id="public-chat-send">Send</button>
+    </div>
+    {% endif %}
 
     {% if player.role == 'Mafia' %}
-        <h2>Mafia Chat</h2>
-        <ul>
-            {% for msg in mafia_messages %}
-                <li>
-                    {% if msg.sender %}{{ msg.sender.user.username }}{% else %}SYSTEM{% endif %}: {{ msg.content }}
-                </li>
-            {% empty %}
-                <li>No mafia messages yet.</li>
-            {% endfor %}
-        </ul>
+    <h2>Mafia Chat {% if game.phase == 'NIGHT' %}<small>(live)</small>{% else %}<small>(chat enabled during Night)</small>{% endif %}</h2>
+    <ul id="mafia-chat-log">
+        {% for msg in mafia_messages %}
+            <li><b>{% if msg.sender %}{{ msg.sender.user.username }}{% else %}SYSTEM{% endif %}:</b> {{ msg.content }}</li>
+        {% empty %}
+            <li id="no-mafia-msg">No mafia messages yet.</li>
+        {% endfor %}
+    </ul>
+    {% if game.phase == 'NIGHT' and player.is_alive %}
+    <div>
+        <input type="text" id="mafia-chat-input" placeholder="Mafia chat..." size="40" />
+        <button id="mafia-chat-send">Send</button>
+    </div>
+    {% endif %}
     {% endif %}
 
     <script>
-        async function refreshTimer() {
+        // ── Phase polling: update timer and reload when phase changes ──────────
+        const currentPhase = "{{ game.phase }}";
+
+        async function pollState() {
             try {
-                const response = await fetch("{% url 'game_state_api' %}");
-                if (!response.ok) return;
-                const data = await response.json();
-                const timer = document.getElementById("timer");
-                if (timer) {
-                    timer.textContent = data.seconds_remaining;
+                const resp = await fetch("{% url 'game_state_api' %}");
+                if (!resp.ok) return;
+                const data = await resp.json();
+
+                const timerEl = document.getElementById("timer");
+                if (timerEl) timerEl.textContent = data.seconds_remaining;
+
+                if (data.phase !== currentPhase) {
+                    window.location.reload();
                 }
             } catch (e) {
-                console.error(e);
+                console.error("Poll error:", e);
             }
         }
 
-        setInterval(refreshTimer, 1000);
+        setInterval(pollState, 2000);
+
+        // ── WebSocket helpers ──────────────────────────────────────────────────
+        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+
+        function appendMessage(logId, placeholderId, username, message) {
+            const log = document.getElementById(logId);
+            if (!log) return;
+            const placeholder = document.getElementById(placeholderId);
+            if (placeholder) placeholder.remove();
+            const item = document.createElement("li");
+            item.innerHTML = "<b>" + username + ":</b> " + message;
+            log.appendChild(item);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function bindSend(socketRef, inputId, sendBtnId) {
+            const input = document.getElementById(inputId);
+            const btn = document.getElementById(sendBtnId);
+            if (!input || !btn) return;
+
+            btn.onclick = function () {
+                const msg = input.value.trim();
+                if (msg && socketRef.socket && socketRef.socket.readyState === WebSocket.OPEN) {
+                    socketRef.socket.send(JSON.stringify({ message: msg }));
+                    input.value = "";
+                }
+            };
+
+            input.addEventListener("keypress", function (e) {
+                if (e.key === "Enter") btn.click();
+            });
+        }
+
+        // ── Public chat WebSocket ──────────────────────────────────────────────
+        (function () {
+            const ref = {};
+            const ws = new WebSocket(wsProtocol + "//" + window.location.host + "/ws/public/");
+            ref.socket = ws;
+
+            ws.onmessage = function (e) {
+                const data = JSON.parse(e.data);
+                appendMessage("public-chat-log", "no-public-msg", data.username, data.message);
+            };
+
+            ws.onerror = function () {
+                console.warn("Public chat WebSocket error.");
+            };
+
+            ws.onclose = function () {
+                console.log("Public chat disconnected.");
+            };
+
+            bindSend(ref, "public-chat-input", "public-chat-send");
+        })();
+
+        // ── Mafia chat WebSocket (only rendered for Mafia players) ─────────────
+        {% if player.role == 'Mafia' %}
+        (function () {
+            const ref = {};
+            const ws = new WebSocket(wsProtocol + "//" + window.location.host + "/ws/mafia/");
+            ref.socket = ws;
+
+            ws.onmessage = function (e) {
+                const data = JSON.parse(e.data);
+                appendMessage("mafia-chat-log", "no-mafia-msg", data.username, data.message);
+            };
+
+            ws.onerror = function () {
+                console.warn("Mafia chat WebSocket error.");
+            };
+
+            ws.onclose = function () {
+                console.log("Mafia chat disconnected.");
+            };
+
+            bindSend(ref, "mafia-chat-input", "mafia-chat-send");
+        })();
+        {% endif %}
     </script>
 </body>
 </html>

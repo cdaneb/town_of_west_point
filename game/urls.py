@@ -8,6 +8,7 @@ urlpatterns = [
     path('lobby/', views.lobby_view, name='lobby'),
     path('lobby/toggle-ready/', views.toggle_ready, name='toggle_ready'),
     path('lobby/start/', views.start_game, name='start_game'),
+    path('lobby/reset/', views.reset_game_view, name='reset_game'),
     path('game/', views.game_view, name='game_room'),
     path('game/vote/<int:target_id>/', views.cast_vote, name='cast_vote'),
     path('game/night-action/<int:target_id>/', views.cast_night_action, name='cast_night_action'),

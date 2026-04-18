@@ -7,7 +7,7 @@ from django.shortcuts import render, redirect
 from django.views.decorators.http import require_POST
 
 from .models import GameState, Player, Vote, NightAction, ChatMessage
-from .phase_change import get_game, advance_game_phase
+from .phase_change import get_game, advance_game_phase, reset_game
 
 
 def login_view(request):
@@ -73,9 +73,10 @@ def start_game(request):
     if game.phase != 'LOBBY':
         return redirect('game_room')
 
-    # keep this at 1 for solo testing, change back to 4 later
-    if ready_players < 1:
-        return HttpResponseForbidden("At least 1 ready player required.")
+    # Minimum 2 ready players required: 1 Mafia + 1 Town.
+    # For a fun game recommend 5+. With 2 players Mafia wins after the first night.
+    if ready_players < 2:
+        return HttpResponseForbidden("At least 2 ready players required for a valid game.")
 
     advance_game_phase()
     game.refresh_from_db()
@@ -156,6 +157,14 @@ def cast_night_action(request, target_id):
         defaults={'target': target}
     )
     return redirect('game_room')
+
+
+@login_required
+@require_POST
+def reset_game_view(request):
+    """Reset the game to LOBBY so a new round can be started."""
+    reset_game()
+    return redirect('lobby')
 
 
 @login_required

@@ -1,31 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Lobby</title>
+    <title>Lobby – Town of West Point</title>
 </head>
 <body>
-    <h1>Lobby</h1>
-    <p>Current phase: {{ game.phase }}</p>
+    <h1>Town of West Point – Lobby</h1>
+    <p>Logged in as: <strong>{{ request.user.username }}</strong> &nbsp;|&nbsp; <a href="{% url 'logout' %}">Logout</a></p>
 
-    <h2>Players</h2>
-    <ul>
-        {% for p in players %}
-            <li>{{ p.user.username }} {% if p.is_ready %}(Ready){% endif %}</li>
-        {% endfor %}
-    </ul>
+    <p>Game status: <strong>{{ game.phase }}</strong></p>
 
-    <form method="post" action="{% url 'toggle_ready' %}">
-        {% csrf_token %}
-        <button type="submit">
-            {% if player.is_ready %}Unready{% else %}Ready Up{% endif %}
-        </button>
-    </form>
+    {% if game.phase == 'GAME_OVER' %}
+        <p><strong>Game over. {{ game.winner }} won the last round.</strong></p>
+        <form method="post" action="{% url 'reset_game' %}">
+            {% csrf_token %}
+            <button type="submit">Start New Game (Return to Lobby)</button>
+        </form>
 
-    <form method="post" action="{% url 'start_game' %}">
-        {% csrf_token %}
-        <button type="submit">Start Game</button>
-    </form>
+    {% elif game.phase == 'LOBBY' %}
+        <h2>Players ({{ players|length }} registered)</h2>
+        <ul>
+            {% for p in players %}
+                <li>{{ p.user.username }} {% if p.is_ready %}<em>(Ready)</em>{% endif %}</li>
+            {% endfor %}
+        </ul>
 
-    <p><a href="{% url 'logout' %}">Logout</a></p>
+        <form method="post" action="{% url 'toggle_ready' %}">
+            {% csrf_token %}
+            <button type="submit">
+                {% if player.is_ready %}Unready{% else %}Ready Up{% endif %}
+            </button>
+        </form>
+
+        <form method="post" action="{% url 'start_game' %}">
+            {% csrf_token %}
+            <button type="submit">Start Game</button>
+        </form>
+        <p><small>Requires at least 2 ready players. Recommended: 5+ for best gameplay.</small></p>
+
+    {% else %}
+        <p>A game is in progress.</p>
+        <a href="{% url 'game_room' %}"><button>Join Game</button></a>
+    {% endif %}
 </body>
 </html>

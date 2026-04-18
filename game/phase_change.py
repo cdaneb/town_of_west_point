@@ -12,13 +12,40 @@ def get_game():
     return game
 
 
+def reset_game():
+    """Reset the game back to LOBBY state so a new game can be started."""
+    game = get_game()
+    game.phase = 'LOBBY'
+    game.winner = None
+    game.phase_started_at = None
+    game.phase_ends_at = None
+    game.save()
+    # Reset all players but keep their accounts
+    Player.objects.update(role='', is_alive=True, is_ready=False, votes=0, has_voted=False)
+    # Clear game-round data
+    Vote.objects.filter(game=game).delete()
+    NightAction.objects.filter(game=game).delete()
+    ChatMessage.objects.filter(game=game).delete()
+
+
 def check_for_winner():
+    """
+    Returns 'Town' if all Mafia are dead, 'Mafia' if Mafia count >= Town count,
+    or None if the game should continue.
+
+    Players with blank roles (e.g. before role assignment) are intentionally
+    excluded so a blank-role edge case doesn't trigger a false win.
+    """
     mafia_alive = Player.objects.filter(is_alive=True, role='Mafia').count()
     town_alive = Player.objects.filter(is_alive=True, role='Town').count()
 
+    # Don't evaluate if no one has roles yet
+    if mafia_alive == 0 and town_alive == 0:
+        return None
+
     if mafia_alive == 0:
         return 'Town'
-    if mafia_alive >= town_alive and mafia_alive > 0:
+    if mafia_alive >= town_alive:
         return 'Mafia'
     return None
 
@@ -92,6 +119,16 @@ def advance_game_phase():
 
     if game.phase == 'LOBBY':
         assign_roles()
+
+        # Safety: need at least 1 Mafia and 1 Town for a valid game
+        town_count = Player.objects.filter(role='Town').count()
+        mafia_count = Player.objects.filter(role='Mafia').count()
+        if town_count == 0 or mafia_count == 0:
+            # Roll back roles so the lobby stays open
+            Player.objects.update(role='', is_alive=True, is_ready=False)
+            add_system_message(game, "Not enough players for a valid game. Need at least 1 Mafia and 1 Town (min 2 players).")
+            return
+
         game.phase = 'NIGHT'
         game.winner = None
         game.save()
