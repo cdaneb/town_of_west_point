@@ -58,13 +58,19 @@ def start_game(request):
     ready_players = Player.objects.filter(is_ready=True).count()
 
     if game.phase != 'LOBBY':
-        return redirect('lobby')
+        return redirect('game_room')
 
+    # use 1 for solo testing, change back to 4 later
     if ready_players < 1:
-        return HttpResponseForbidden("At least 1 ready players required.")
+        return HttpResponseForbidden("At least 1 ready player required.")
 
     advance_game_phase()
-    return redirect('game_room')
+    game.refresh_from_db()
+
+    if game.phase == 'LOBBY':
+        return HttpResponseForbidden("Game did not leave the lobby.")
+
+    return redirect('/game/')
 
 
 @login_required
