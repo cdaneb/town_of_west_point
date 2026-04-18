@@ -1,147 +1,83 @@
-<script>
-    let publicSocket = null;
-    let mafiaSocket = null;
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mafia Game</title>
+</head>
+<body>
+    <h1>Mafia Game</h1>
 
-    async function refreshState() {
-        try {
-            const response = await fetch("{% url 'game_state_api' %}");
-            if (!response.ok) {
-                console.error("State API error:", response.status);
-                return;
-            }
+    <p>Phase: {{ game.phase }}</p>
+    <p>Time Remaining: <span id="timer">{{ game.seconds_remaining }}</span></p>
+    <p>Your role: {{ player.role }}</p>
 
-            const data = await response.json();
+    {% if game.winner %}
+        <h2>{{ game.winner }} wins!</h2>
+    {% endif %}
 
-            const phaseEl = document.getElementById("phase");
-            const timerEl = document.getElementById("timer");
-            const winnerEl = document.getElementById("winner");
-            const playerList = document.getElementById("player-list");
+    <h2>Players</h2>
+    <ul>
+        {% for p in players %}
+            <li>
+                {{ p.user.username }}
+                {% if p.is_alive %}(Alive){% else %}(Dead){% endif %}
 
-            if (phaseEl) phaseEl.innerText = data.phase;
-            if (timerEl) timerEl.innerText = data.seconds_remaining;
-            if (winnerEl && data.winner) {
-                winnerEl.innerText = data.winner + " wins!";
-            }
+                {% if game.phase == 'DAY' and player.is_alive and p.is_alive and p != player %}
+                    <form method="post" action="{% url 'cast_vote' p.id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit">Vote</button>
+                    </form>
+                {% endif %}
 
-            if (playerList) {
-                playerList.innerHTML = "";
-                data.players.forEach(player => {
-                    const li = document.createElement("li");
-                    li.textContent = player.username + (player.is_alive ? " (Alive)" : " (Dead)");
-                    playerList.appendChild(li);
-                });
-            }
-        } catch (error) {
-            console.error("refreshState failed:", error);
-        }
-    }
+                {% if game.phase == 'NIGHT' and player.is_alive and player.role == 'Mafia' and p.is_alive and p.role == 'Town' %}
+                    <form method="post" action="{% url 'cast_night_action' p.id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit">Target</button>
+                    </form>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
 
-    function appendMessage(listId, username, message) {
-        const chatBox = document.getElementById(listId);
-        if (!chatBox) return;
+    <h2>Public Chat</h2>
+    <ul>
+        {% for msg in public_messages %}
+            <li>
+                {% if msg.sender %}{{ msg.sender.user.username }}{% else %}SYSTEM{% endif %}: {{ msg.content }}
+            </li>
+        {% empty %}
+            <li>No messages yet.</li>
+        {% endfor %}
+    </ul>
 
-        const messageEl = document.createElement("div");
-        messageEl.textContent = username + ": " + message;
-        chatBox.appendChild(messageEl);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
+    {% if player.role == 'Mafia' %}
+        <h2>Mafia Chat</h2>
+        <ul>
+            {% for msg in mafia_messages %}
+                <li>
+                    {% if msg.sender %}{{ msg.sender.user.username }}{% else %}SYSTEM{% endif %}: {{ msg.content }}
+                </li>
+            {% empty %}
+                <li>No mafia messages yet.</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
 
-    function setupPublicChat() {
-        try {
-            const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-            publicSocket = new WebSocket(protocol + "://" + window.location.host + "/ws/public/");
-
-            publicSocket.onmessage = function(e) {
-                const data = JSON.parse(e.data);
-                appendMessage("public-chat-box", data.username, data.message);
-            };
-
-            publicSocket.onclose = function(e) {
-                console.log("Public chat socket closed", e);
-            };
-
-            publicSocket.onerror = function(e) {
-                console.error("Public chat socket error", e);
-            };
-        } catch (error) {
-            console.error("setupPublicChat failed:", error);
-        }
-    }
-
-    function setupMafiaChat() {
-        try {
-            const mafiaSection = document.getElementById("mafia-section");
-            if (!mafiaSection) return;
-
-            const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-            mafiaSocket = new WebSocket(protocol + "://" + window.location.host + "/ws/mafia/");
-
-            mafiaSocket.onmessage = function(e) {
-                const data = JSON.parse(e.data);
-                appendMessage("mafia-chat-box", data.username, data.message);
-            };
-
-            mafiaSocket.onclose = function(e) {
-                console.log("Mafia chat socket closed", e);
-            };
-
-            mafiaSocket.onerror = function(e) {
-                console.error("Mafia chat socket error", e);
-            };
-        } catch (error) {
-            console.error("setupMafiaChat failed:", error);
-        }
-    }
-
-    function sendPublicMessage() {
-        const input = document.getElementById("public-message-input");
-        const message = input ? input.value.trim() : "";
-
-        if (!message || !publicSocket || publicSocket.readyState !== WebSocket.OPEN) {
-            return;
-        }
-
-        publicSocket.send(JSON.stringify({ message: message }));
-        input.value = "";
-    }
-
-    function sendMafiaMessage() {
-        const input = document.getElementById("mafia-message-input");
-        const message = input ? input.value.trim() : "";
-
-        if (!message || !mafiaSocket || mafiaSocket.readyState !== WebSocket.OPEN) {
-            return;
-        }
-
-        mafiaSocket.send(JSON.stringify({ message: message }));
-        input.value = "";
-    }
-
-    window.onload = function() {
-        refreshState();
-
-        // Start timer polling first so websocket errors do not stop it
-        setInterval(refreshState, 1000);
-
-        setupPublicChat();
-        setupMafiaChat();
-
-        const publicInput = document.getElementById("public-message-input");
-        if (publicInput) {
-            publicInput.addEventListener("keypress", function(e) {
-                if (e.key === "Enter") {
-                    sendPublicMessage();
+    <script>
+        async function refreshTimer() {
+            try {
+                const response = await fetch("{% url 'game_state_api' %}");
+                if (!response.ok) return;
+                const data = await response.json();
+                const timer = document.getElementById("timer");
+                if (timer) {
+                    timer.textContent = data.seconds_remaining;
                 }
-            });
+            } catch (e) {
+                console.error(e);
+            }
         }
 
-        const mafiaInput = document.getElementById("mafia-message-input");
-        if (mafiaInput) {
-            mafiaInput.addEventListener("keypress", function(e) {
-                if (e.key === "Enter") {
-                    sendMafiaMessage();
-                }
-            });
-        }
-    };
-</script>
+        setInterval(refreshTimer, 1000);
+    </script>
+</body>
+</html>
