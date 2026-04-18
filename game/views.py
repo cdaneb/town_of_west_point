@@ -161,6 +161,30 @@ def cast_night_action(request, target_id):
 
 @login_required
 @require_POST
+def end_game_view(request):
+    game = get_game()
+    if game.phase not in ('DAY', 'NIGHT'):
+        return redirect('game_room')
+
+    mafia_alive = Player.objects.filter(is_alive=True, role='Mafia').count()
+    town_alive = Player.objects.filter(is_alive=True, role='Town').count()
+
+    game.winner = 'Mafia' if mafia_alive > town_alive else 'Town'
+    game.phase = 'GAME_OVER'
+    game.phase_ends_at = None
+    game.save()
+
+    ChatMessage.objects.create(
+        game=game,
+        sender=None,
+        chat_type='system',
+        content=f'The game was ended early. {game.winner} wins!'
+    )
+    return redirect('game_room')
+
+
+@login_required
+@require_POST
 def reset_game_view(request):
     """Reset the game to LOBBY so a new round can be started."""
     reset_game()

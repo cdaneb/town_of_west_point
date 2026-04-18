@@ -29,6 +29,13 @@
         <h2>{{ game.winner }} wins!</h2>
     {% endif %}
 
+    {% if game.phase == 'DAY' or game.phase == 'NIGHT' %}
+        <form method="post" action="{% url 'end_game' %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" onclick="return confirm('End the game now? Winner is determined by who has more alive players.');">End Game</button>
+        </form>
+    {% endif %}
+
     {% if game.phase == 'GAME_OVER' %}
         <form method="post" action="{% url 'reset_game' %}">
             {% csrf_token %}
@@ -69,10 +76,10 @@
             <li id="no-public-msg">No messages yet.</li>
         {% endfor %}
     </ul>
-    {% if game.phase == 'DAY' and player.is_alive %}
+    {% if game.phase == 'DAY' %}
     <div>
-        <input type="text" id="public-chat-input" placeholder="Type a message..." size="40" />
-        <button id="public-chat-send">Send</button>
+        <input type="text" id="public-chat-input" placeholder="{% if player.is_alive %}Type a message...{% else %}(You are dead — observer only){% endif %}" size="40" {% if not player.is_alive %}disabled{% endif %} />
+        <button id="public-chat-send" {% if not player.is_alive %}disabled{% endif %}>Send</button>
     </div>
     {% endif %}
 
