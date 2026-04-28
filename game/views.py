@@ -121,12 +121,48 @@ def game_view(request):
             chat_type__in=['mafia', 'system']
         ).order_by('created_at')
 
+    # Build day vote tally (all players see this during DAY)
+    day_vote_tally = []
+    execution_target = None
+    if game.phase == 'DAY':
+        vote_counts = Counter(
+            Vote.objects.filter(game=game).values_list('target_id', flat=True)
+        )
+        if vote_counts:
+            sorted_votes = vote_counts.most_common()
+            for target_id, count in sorted_votes:
+                target_player = Player.objects.filter(id=target_id, is_alive=True).first()
+                if target_player:
+                    day_vote_tally.append({'player': target_player, 'count': count})
+            if day_vote_tally:
+                execution_target = day_vote_tally[0]['player']
+
+    # Build night vote tally (Mafia only see this during NIGHT)
+    night_vote_tally = []
+    night_top_target = None
+    if game.phase == 'NIGHT' and player.role == 'Mafia':
+        action_counts = Counter(
+            NightAction.objects.filter(game=game).values_list('target_id', flat=True)
+        )
+        if action_counts:
+            sorted_actions = action_counts.most_common()
+            for target_id, count in sorted_actions:
+                target_player = Player.objects.filter(id=target_id, is_alive=True).first()
+                if target_player:
+                    night_vote_tally.append({'player': target_player, 'count': count})
+            if night_vote_tally:
+                night_top_target = night_vote_tally[0]['player']
+
     return render(request, 'game/game.html', {
         'game': game,
         'player': player,
         'players': players,
         'public_messages': public_messages,
         'mafia_messages': mafia_messages,
+        'day_vote_tally': day_vote_tally,
+        'execution_target': execution_target,
+        'night_vote_tally': night_vote_tally,
+        'night_top_target': night_top_target,
     })
 
 
