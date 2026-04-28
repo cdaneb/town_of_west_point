@@ -1,5 +1,5 @@
 # Town of West Point
-### CDTs Christian Beels and Benjamin Doody — CY300 Project
+### CDTs Dane Beels and Ben Doody — CY300 Project
 
 ## Overview
 
