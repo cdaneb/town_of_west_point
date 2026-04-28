@@ -11,7 +11,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-local-dev-only-change
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS_ENV = os.environ.get("ALLOWED_HOSTS", "")
-ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS_ENV.split(",") if h.strip()] or ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS_ENV.split(",") if h.strip()] + [".vercel.app", "localhost", "127.0.0.1"]
 
 INSTALLED_APPS = [
     "daphne",

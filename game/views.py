@@ -7,6 +7,7 @@ from django.shortcuts import render, redirect
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 import json
+from collections import Counter
 
 from .models import GameState, Player, Vote, NightAction, ChatMessage
 from .phase_change import get_game, advance_game_phase, reset_game
