@@ -1,0 +1,254 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lato:wght@300;400&display=swap');
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #1a1209;
+  --surface:    #2b1f0e;
+  --border:     #5a3e1b;
+  --text:       #f0e6c8;
+  --text-muted: #a08860;
+  --brass:      #8b6914;
+  --brass-hi:   #c49a22;
+  --amber-glow: rgba(196, 154, 34, 0.15);
+  --night-tint: rgba(20, 30, 60, 0.35);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Lato', sans-serif;
+  font-weight: 300;
+  min-height: 100vh;
+  padding: 0 1rem 2rem;
+}
+
+/* Day / Night body tints */
+body.phase-day   { background-color: #1e1508; }
+body.phase-night { background-color: #0e1018; }
+body.phase-day   .panel { background: rgba(40, 28, 8, 0.95); }
+body.phase-night .panel { background: rgba(14, 18, 36, 0.95); }
+
+/* ── Typography ───────────────────────────────────────────────────────────── */
+h1, h2, h3 {
+  font-family: 'Playfair Display', serif;
+  color: var(--brass-hi);
+  letter-spacing: 0.04em;
+}
+
+h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+h2 { font-size: 1.4rem; margin: 1.2rem 0 0.5rem; }
+h3 { font-size: 1.1rem; }
+
+a { color: var(--brass-hi); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+p { margin-bottom: 0.5rem; line-height: 1.6; }
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.site-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.2rem 0 0.8rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.2rem;
+}
+
+.lantern { font-size: 1.6rem; }
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.col { flex: 1 1 280px; }
+
+/* ── Panel / Card ─────────────────────────────────────────────────────────── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem 1.2rem;
+  box-shadow: 0 0 16px var(--amber-glow);
+  margin-bottom: 1rem;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+button, .btn {
+  background: var(--brass);
+  color: var(--text);
+  border: 2px solid var(--brass-hi);
+  border-radius: 4px;
+  padding: 0.45rem 1rem;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: box-shadow 0.2s, background 0.2s;
+}
+
+button:hover, .btn:hover {
+  background: var(--brass-hi);
+  box-shadow: 0 0 10px var(--brass-hi);
+}
+
+button:disabled, .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ── Forms ────────────────────────────────────────────────────────────────── */
+.form-group { margin-bottom: 0.9rem; }
+
+label {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+input[type="text"],
+input[type="password"],
+textarea {
+  width: 100%;
+  background: #0e0a04;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus, textarea:focus { border-color: var(--brass-hi); }
+
+.errorlist {
+  color: #e05555;
+  font-size: 0.85rem;
+  list-style: none;
+  margin-top: 0.25rem;
+}
+
+/* ── Player list ──────────────────────────────────────────────────────────── */
+.player-list { list-style: none; padding: 0; }
+
+.player-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(90, 62, 27, 0.4);
+  flex-wrap: wrap;
+}
+
+.player-list li:last-child { border-bottom: none; }
+
+.player-dead { opacity: 0.45; font-style: italic; }
+
+.role-badge {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  border: 1px solid;
+}
+
+.role-badge.mafia { color: #e05555; border-color: #e05555; }
+.role-badge.town  { color: #55a855; border-color: #55a855; }
+
+/* ── Chat ─────────────────────────────────────────────────────────────────── */
+.chat-log {
+  height: 200px;
+  overflow-y: auto;
+  background: #0e0a04;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  list-style: none;
+  margin-bottom: 0.5rem;
+  scroll-behavior: smooth;
+}
+
+.chat-log li { padding: 0.2rem 0; font-size: 0.9rem; line-height: 1.4; }
+
+.chat-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chat-input-row input { flex: 1; }
+
+/* ── Timer / Phase ────────────────────────────────────────────────────────── */
+.phase-info {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.phase-label {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  color: var(--brass-hi);
+}
+
+#phase-timer {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--brass-hi);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Auth / Lobby centre card ─────────────────────────────────────────────── */
+.auth-card {
+  max-width: 420px;
+  margin: 4rem auto;
+}
+
+/* ── Lantern flicker animation ────────────────────────────────────────────── */
+@keyframes flicker {
+  0%   { opacity: 1; }
+  10%  { opacity: 0.85; }
+  20%  { opacity: 1; }
+  50%  { opacity: 0.9; }
+  60%  { opacity: 1; }
+  80%  { opacity: 0.8; }
+  90%  { opacity: 1; }
+  100% { opacity: 0.95; }
+}
+
+.lantern { display: inline-block; animation: flicker 3s infinite ease-in-out; }
+
+/* ── Status badges ────────────────────────────────────────────────────────── */
+.status-alive { color: #55a855; }
+.status-dead  { color: #e05555; font-style: italic; }
+
+/* ── Winner banner ────────────────────────────────────────────────────────── */
+.winner-banner {
+  text-align: center;
+  padding: 1rem;
+  border: 2px solid var(--brass-hi);
+  border-radius: 6px;
+  background: var(--amber-glow);
+  margin-bottom: 1rem;
+}
+
+.winner-banner h2 { font-size: 1.8rem; }
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  h1 { font-size: 1.4rem; }
+  .row { flex-direction: column; }
+  .panel { padding: 0.75rem; }
+}
