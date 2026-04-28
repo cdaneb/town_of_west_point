@@ -5,6 +5,8 @@ from django.contrib.auth import login as auth_login
 from django.http import JsonResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect
 from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+import json
 
 from .models import GameState, Player, Vote, NightAction, ChatMessage
 from .phase_change import get_game, advance_game_phase, reset_game
@@ -66,6 +68,19 @@ def toggle_ready(request):
 
 @login_required
 @require_POST
+def leave_lobby(request):
+    game = get_game()
+    if game.phase != 'LOBBY':
+        return redirect('lobby')
+    player = Player.objects.filter(user=request.user).first()
+    if player:
+        player.delete()
+    logout(request)
+    return redirect('login')
+
+
+@login_required
+@require_POST
 def start_game(request):
     game = get_game()
     ready_players = Player.objects.filter(is_ready=True).count()
@@ -73,8 +88,6 @@ def start_game(request):
     if game.phase != 'LOBBY':
         return redirect('game_room')
 
-    # Minimum 2 ready players required: 1 Mafia + 1 Town.
-    # For a fun game recommend 5+. With 2 players Mafia wins after the first night.
     if ready_players < 2:
         return HttpResponseForbidden("At least 2 ready players required for a valid game.")
 
@@ -186,7 +199,6 @@ def end_game_view(request):
 @login_required
 @require_POST
 def reset_game_view(request):
-    """Reset the game to LOBBY so a new round can be started."""
     reset_game()
     return redirect('lobby')
 
@@ -209,3 +221,66 @@ def game_state_api(request):
             for p in players
         ]
     })
+
+
+@login_required
+def get_messages(request):
+    game = get_game()
+    player = Player.objects.filter(user=request.user).first()
+    chat_type = request.GET.get('type', 'public')
+
+    if chat_type == 'mafia':
+        if not player or player.role != 'Mafia':
+            return JsonResponse({'messages': []})
+        messages = ChatMessage.objects.filter(
+            game=game,
+            chat_type__in=['mafia', 'system']
+        ).order_by('created_at')[:50]
+    else:
+        messages = ChatMessage.objects.filter(
+            game=game,
+            chat_type__in=['public', 'system']
+        ).order_by('created_at')[:50]
+
+    data = [
+        {
+            'username': m.sender.user.username if m.sender else 'SYSTEM',
+            'message': m.content
+        }
+        for m in messages
+    ]
+    return JsonResponse({'messages': data})
+
+
+@login_required
+@require_POST
+def send_message(request):
+    game = get_game()
+    player = Player.objects.filter(user=request.user).first()
+
+    if not player or not player.is_alive:
+        return JsonResponse({'error': 'Not allowed'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    message = data.get('message', '').strip()
+    if not message:
+        return JsonResponse({'error': 'Empty message'}, status=400)
+
+    if game.phase == 'NIGHT' and player.role == 'Mafia':
+        chat_type = 'mafia'
+    elif game.phase == 'DAY':
+        chat_type = 'public'
+    else:
+        return JsonResponse({'error': 'Chat not available'}, status=403)
+
+    ChatMessage.objects.create(
+        game=game,
+        sender=player,
+        chat_type=chat_type,
+        content=message
+    )
+    return JsonResponse({'status': 'ok'})

@@ -47,6 +47,10 @@
                     {% csrf_token %}
                     <button type="submit">Start Game</button>
                 </form>
+                <form method="post" action="{% url 'leave_lobby' %}" onsubmit="return confirm('Leave the lobby? You will be logged out.');">
+                    {% csrf_token %}
+                    <button type="submit" style="background:var(--mafia-red,#8b1a1a);border-color:#c0392b;">Leave Lobby</button>
+                </form>
             </div>
             <p style="margin-top:0.5rem;"><small style="color:var(--text-muted);">Requires at least 2 ready players. Recommended: 5+ for best gameplay.</small></p>
 

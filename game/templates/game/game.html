@@ -94,17 +94,25 @@
         <!-- Chat -->
         <div class="col">
             <div class="panel">
-                <h2>Public Chat {% if game.phase == 'DAY' %}<small style="font-size:0.7em;">(live)</small>{% else %}<small style="font-size:0.7em;color:var(--text-muted);">(Day only)</small>{% endif %}</h2>
+                <h2>Public Chat
+                    {% if game.phase == 'DAY' %}
+                        <small style="font-size:0.7em;">(live)</small>
+                    {% else %}
+                        <small style="font-size:0.7em;color:var(--text-muted);">(Day only)</small>
+                    {% endif %}
+                </h2>
                 <ul class="chat-log" id="public-chat-log">
                     {% for msg in public_messages %}
                         <li><b>{% if msg.sender %}{{ msg.sender.user.username }}{% else %}SYSTEM{% endif %}:</b> {{ msg.content }}</li>
                     {% empty %}
-                        <li id="no-public-msg" style="color:var(--text-muted);">No messages yet.</li>
+                        <li style="color:var(--text-muted);">No messages yet.</li>
                     {% endfor %}
                 </ul>
                 {% if game.phase == 'DAY' %}
                 <div class="chat-input-row">
-                    <input type="text" id="public-chat-input" placeholder="{% if player.is_alive %}Type a message…{% else %}(Observer — dead players cannot speak){% endif %}" {% if not player.is_alive %}disabled{% endif %} />
+                    <input type="text" id="public-chat-input"
+                        placeholder="{% if player.is_alive %}Type a message…{% else %}(Observer — dead players cannot speak){% endif %}"
+                        {% if not player.is_alive %}disabled{% endif %} />
                     <button id="public-chat-send" {% if not player.is_alive %}disabled{% endif %}>Send</button>
                 </div>
                 {% endif %}
@@ -112,12 +120,18 @@
 
             {% if player.role == 'Mafia' %}
             <div class="panel">
-                <h2>Mafia Chat {% if game.phase == 'NIGHT' %}<small style="font-size:0.7em;">(live)</small>{% else %}<small style="font-size:0.7em;color:var(--text-muted);">(Night only)</small>{% endif %}</h2>
+                <h2>Mafia Chat
+                    {% if game.phase == 'NIGHT' %}
+                        <small style="font-size:0.7em;">(live)</small>
+                    {% else %}
+                        <small style="font-size:0.7em;color:var(--text-muted);">(Night only)</small>
+                    {% endif %}
+                </h2>
                 <ul class="chat-log" id="mafia-chat-log">
                     {% for msg in mafia_messages %}
                         <li><b>{% if msg.sender %}{{ msg.sender.user.username }}{% else %}SYSTEM{% endif %}:</b> {{ msg.content }}</li>
                     {% empty %}
-                        <li id="no-mafia-msg" style="color:var(--text-muted);">No mafia messages yet.</li>
+                        <li style="color:var(--text-muted);">No mafia messages yet.</li>
                     {% endfor %}
                 </ul>
                 {% if game.phase == 'NIGHT' and player.is_alive %}
@@ -134,7 +148,7 @@
 
 <script src="{% static 'game/game.js' %}"></script>
 <script>
-    // ── Phase polling: update timer and reload when phase changes ──────────
+    // ── Phase polling: reload when phase changes ──────────────────────────
     const currentPhase = "{{ game.phase }}";
 
     async function pollState() {
@@ -149,71 +163,80 @@
             console.error("Poll error:", e);
         }
     }
-
     setInterval(pollState, 2000);
 
-    // ── WebSocket helpers ──────────────────────────────────────────────────
-    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-
-    function appendMessage(logId, placeholderId, username, message) {
-        const log = document.getElementById(logId);
-        if (!log) return;
-        const placeholder = document.getElementById(placeholderId);
-        if (placeholder) placeholder.remove();
-        const item = document.createElement("li");
-        item.innerHTML = "<b>" + username + ":</b> " + message;
-        log.appendChild(item);
-        log.scrollTop = log.scrollHeight;
+    // ── CSRF helper ───────────────────────────────────────────────────────
+    function getCsrf() {
+        const match = document.cookie.match(/csrftoken=([^;]+)/);
+        return match ? match[1] : '';
     }
 
-    function bindSend(socketRef, inputId, sendBtnId) {
+    // ── Generic HTTP chat helpers ─────────────────────────────────────────
+    function fetchMessages(logId, chatType) {
+        fetch(`/api/messages/?type=${chatType}`)
+            .then(r => r.json())
+            .then(data => {
+                const log = document.getElementById(logId);
+                if (!log) return;
+                log.innerHTML = '';
+                if (data.messages.length === 0) {
+                    const li = document.createElement('li');
+                    li.style.color = 'var(--text-muted)';
+                    li.textContent = chatType === 'mafia' ? 'No mafia messages yet.' : 'No messages yet.';
+                    log.appendChild(li);
+                } else {
+                    data.messages.forEach(m => {
+                        const li = document.createElement('li');
+                        li.innerHTML = '<b>' + m.username + ':</b> ' + m.message;
+                        log.appendChild(li);
+                    });
+                }
+                log.scrollTop = log.scrollHeight;
+            })
+            .catch(e => console.error('fetchMessages error:', e));
+    }
+
+    function bindChat(inputId, btnId, chatType, logId) {
         const input = document.getElementById(inputId);
-        const btn = document.getElementById(sendBtnId);
+        const btn = document.getElementById(btnId);
         if (!input || !btn) return;
 
-        btn.onclick = function () {
+        function send() {
             const msg = input.value.trim();
-            if (msg && socketRef.socket && socketRef.socket.readyState === WebSocket.OPEN) {
-                socketRef.socket.send(JSON.stringify({ message: msg }));
-                input.value = "";
-            }
-        };
+            if (!msg) return;
+            fetch('/api/send-message/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrf()
+                },
+                body: JSON.stringify({ message: msg })
+            })
+            .then(r => {
+                if (r.ok) {
+                    input.value = '';
+                    fetchMessages(logId, chatType);
+                }
+            })
+            .catch(e => console.error('sendMessage error:', e));
+        }
 
-        input.addEventListener("keypress", function (e) {
-            if (e.key === "Enter") btn.click();
+        btn.addEventListener('click', send);
+        input.addEventListener('keypress', e => {
+            if (e.key === 'Enter') send();
         });
     }
 
-    // ── Public chat WebSocket ──────────────────────────────────────────────
-    (function () {
-        const ref = {};
-        try {
-            const ws = new WebSocket(wsProtocol + "//" + window.location.host + "/ws/public/");
-            ref.socket = ws;
-            ws.onmessage = function (e) {
-                const data = JSON.parse(e.data);
-                appendMessage("public-chat-log", "no-public-msg", data.username, data.message);
-            };
-            ws.onerror = function () { console.warn("Public chat WebSocket unavailable."); };
-        } catch (e) { console.warn("Public WebSocket could not connect:", e); }
-        bindSend(ref, "public-chat-input", "public-chat-send");
-    })();
+    // ── Public chat ───────────────────────────────────────────────────────
+    {% if game.phase == 'DAY' %}
+    bindChat('public-chat-input', 'public-chat-send', 'public', 'public-chat-log');
+    setInterval(() => fetchMessages('public-chat-log', 'public'), 2000);
+    {% endif %}
 
-    // ── Mafia chat WebSocket ───────────────────────────────────────────────
-    {% if player.role == 'Mafia' %}
-    (function () {
-        const ref = {};
-        try {
-            const ws = new WebSocket(wsProtocol + "//" + window.location.host + "/ws/mafia/");
-            ref.socket = ws;
-            ws.onmessage = function (e) {
-                const data = JSON.parse(e.data);
-                appendMessage("mafia-chat-log", "no-mafia-msg", data.username, data.message);
-            };
-            ws.onerror = function () { console.warn("Mafia chat WebSocket unavailable."); };
-        } catch (e) { console.warn("Mafia WebSocket could not connect:", e); }
-        bindSend(ref, "mafia-chat-input", "mafia-chat-send");
-    })();
+    // ── Mafia chat ────────────────────────────────────────────────────────
+    {% if player.role == 'Mafia' and game.phase == 'NIGHT' %}
+    bindChat('mafia-chat-input', 'mafia-chat-send', 'mafia', 'mafia-chat-log');
+    setInterval(() => fetchMessages('mafia-chat-log', 'mafia'), 2000);
     {% endif %}
 </script>
 </body>
