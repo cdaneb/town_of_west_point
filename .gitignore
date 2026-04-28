@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+db.sqlite3
+.env
+*.env
+venv/
+.venv/
+staticfiles/
+media/
+*.log
+.DS_Store
+town_of_west_point_cli_agent_instructions.md
+readme_cook.txt
+.claude/
+error.txt
