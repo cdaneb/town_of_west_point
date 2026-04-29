@@ -38,6 +38,10 @@ def register_view(request):
 
     return render(request, 'game/register.html', {'form': form})
 
+def home_view(request):
+    if request.user.is_authenticated:
+        return redirect('lobby')
+    return render(request, 'game/home.html')
 
 @login_required
 def logout_view(request):

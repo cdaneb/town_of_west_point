@@ -1,0 +1,76 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Town of West Point</title>
+    <link rel="stylesheet" href="{% static 'game/style.css' %}">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .home-card {
+            text-align: center;
+            padding: 3rem 2.5rem;
+            max-width: 480px;
+            width: 100%;
+        }
+        .home-logo {
+            width: 100%;
+            max-width: 340px;
+            height: auto;
+            margin-bottom: 1.5rem;
+            filter: drop-shadow(0 4px 18px rgba(180,140,40,0.35));
+        }
+        .home-tagline {
+            font-size: 1.1rem;
+            color: var(--text-muted, #b8a98a);
+            margin: 0 0 2.5rem;
+            letter-spacing: 0.04em;
+            font-style: italic;
+        }
+        .home-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .home-buttons a {
+            text-decoration: none;
+        }
+        .home-buttons button {
+            min-width: 140px;
+            font-size: 1rem;
+            padding: 0.65rem 1.5rem;
+        }
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--brass, #8b6914);
+            color: var(--brass-hi, #c49a22);
+        }
+        .btn-secondary:hover {
+            background: rgba(139,105,20,0.15);
+        }
+    </style>
+</head>
+<body>
+<div class="home-card panel">
+    <img
+        src="{% static 'game/town_of_west_point_logo.png' %}"
+        alt="Town of West Point logo"
+        class="home-logo"
+    />
+    <p class="home-tagline">Deception, deduction, and duty — who among you is the Mafia?</p>
+    <div class="home-buttons">
+        <a href="{% url 'login' %}"><button>Login</button></a>
+        <a href="{% url 'register' %}"><button class="btn-secondary">Register</button></a>
+    </div>
+</div>
+<script src="{% static 'game/game.js' %}"></script>
+</body>
+</html>
